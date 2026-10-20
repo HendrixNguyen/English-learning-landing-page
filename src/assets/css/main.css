@@ -1,0 +1,76 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    background-color: #0B0A1F;
+    color: #F4F1FF;
+    scroll-behavior: smooth;
+    color-scheme: dark;
+  }
+
+  body {
+    background-color: #0B0A1F;
+    background-image: radial-gradient(rgba(201, 196, 244, 0.06) 2px, transparent 0);
+    background-size: 16px 16px;
+  }
+
+  @media (prefers-reduced-transparency: reduce) {
+    body {
+      background-image: none;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+  }
+
+  /* modern-web-guidance: improve-text-layout-and-legibility */
+  h1,
+  h2,
+  h3,
+  h4 {
+    text-wrap: balance;
+  }
+
+  p,
+  li,
+  blockquote {
+    text-wrap: pretty;
+  }
+
+  section {
+    scroll-margin-top: 80px;
+  }
+}
+
+/* modern-web-guidance: accessibility — visually-hidden utility that becomes visible on focus */
+.visually-hidden:where(:not(:focus-within, :active)) {
+  position: absolute !important;
+  clip-path: inset(50%) !important;
+  overflow: hidden !important;
+  width: 1px !important;
+  height: 1px !important;
+  margin: -1px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  white-space: nowrap !important;
+}
+
+/* modern-web-guidance: css-layout — subgrid equal-height cards with same-cascade fallback */
+.chapter-subgrid-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  grid-template-rows: auto 1fr auto;
+  gap: 1.25rem;
+}
+
+.chapter-subgrid-card {
+  grid-row: span 3;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  grid-template-rows: subgrid;
+}

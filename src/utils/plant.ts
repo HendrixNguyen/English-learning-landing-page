@@ -1,0 +1,72 @@
+import { DAILY_TARGET_SECONDS } from '~/utils/progress'
+
+/** The DDL `pet_stage` enum (0001_init.up.sql). */
+export const PLANT_STAGES = ['seed', 'sprout', 'sapling', 'flowering', 'fruitful', 'wilted'] as const
+export type PlantStage = (typeof PLANT_STAGES)[number]
+
+export type Tone = 'growth' | 'streak' | 'alert'
+
+export function normalizeStage(stage: string | undefined | null): { stage: PlantStage, known: boolean } {
+  if (stage && (PLANT_STAGES as readonly string[]).includes(stage)) return { stage: stage as PlantStage, known: true }
+  return { stage: 'sprout', known: false }
+}
+
+/** design §3: 100–60 growth, 59–30 streak, 29–0 alert. */
+export function healthTone(health: number): Tone {
+  if (health >= 60) return 'growth'
+  if (health >= 30) return 'streak'
+  return 'alert'
+}
+
+/** CODEMAP `pet`: wilted at 0 health, otherwise by streak — the table `SaveTargetMet` writes (backend engine.go). */
+export function stageForStreak(streak: number, health: number): PlantStage {
+  if (health <= 0) return 'wilted'
+  if (streak >= 14) return 'fruitful'
+  if (streak >= 7) return 'flowering'
+  if (streak >= 3) return 'sapling'
+  return 'sprout'
+}
+
+/** Streak days that earn a line of their own in the bubble (design growth-moment §4). */
+export const STREAK_MILESTONES = [3, 7, 14, 21, 28] as const
+
+export interface SpeechInput {
+  stage: string
+  health: number
+  targetMet: boolean
+  /** GET /quests/daily accumulated_seconds; > 0 means the learner is mid-day. */
+  accumulatedSeconds?: number
+  streak?: number
+  lastPracticedAt?: string | null
+  now?: Date
+  /** Replaces "tớ" in the two lines that address the plant by name (design plant-name §2); blank keeps every line as before. */
+  name?: string
+}
+
+const metLine = (name: string) => `Cảm ơn cậu, hôm nay ${name} đủ nước rồi.`
+
+/** Whole days between an ISO timestamp and now; null when absent or unparsable. */
+export function daysSince(iso: string | null | undefined, now: Date = new Date()): number | null {
+  if (!iso) return null
+  const t = Date.parse(iso)
+  if (Number.isNaN(t)) return null
+  return Math.max(0, Math.floor((now.getTime() - t) / 86_400_000))
+}
+
+/** One line, first match wins — design growth-moment §4 & UI-KIT v2 copy register ("tớ" / "cậu"). */
+export function speechLine(o: SpeechInput): string {
+  const name = o.name?.trim() || 'tớ'
+  const Name = name === 'tớ' ? 'Tớ' : name
+  if (o.stage === 'wilted' || o.health <= 0) return 'Hức… tớ héo mất rồi (0 HP). Bấm Hồi sinh 15 phút để cứu tớ dậy nhé!'
+  if (o.targetMet) {
+    const milestone = o.streak !== undefined && (STREAK_MILESTONES as readonly number[]).includes(o.streak)
+    return milestone ? `${o.streak} ngày liên tiếp! ${metLine(name)}` : metLine(name)
+  }
+  const accumulated = o.accumulatedSeconds ?? 0
+  if (accumulated > 0) return `Còn ${Math.max(1, Math.ceil((DAILY_TARGET_SECONDS - accumulated) / 60))} phút nữa là xong phòng hôm nay rồi!`
+  const missed = daysSince(o.lastPracticedAt, o.now)
+  if (missed !== null && missed >= 1) return 'Hôm qua tớ nhớ cậu… Dành 10 phút đầu tiên cùng tớ nhé?'
+  if (o.health >= 60) return 'Mỗi ngày cậu học đủ 30 phút, tớ được cộng +20 HP và lớn thêm một bậc!'
+  if (o.health >= 30) return 'Tớ hơi khát nước rồi… Vào dọn một nhiệm vụ 10 phút cùng tớ nhé?'
+  return `${Name} sắp héo mất rồi! Học một chút để giữ chuỗi ngày nhé?`
+}
